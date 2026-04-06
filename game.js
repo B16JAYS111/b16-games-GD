@@ -20,7 +20,10 @@ const COLORS = {
   platformOutline: "#0ea5e9",
   text: "#facc15",
   trail: "rgba(34,197,94,0.3)",
-  particle: "#e5e7eb"
+  particle: "#e5e7eb",
+  progressBg: "rgba(15,23,42,0.9)",
+  progressFill: "#22c55e",
+  progressBorder: "#e5e7eb"
 };
 
 // -------------------- PLAYER --------------------
@@ -43,11 +46,11 @@ let gameOver = false;
 let score = 0;
 
 // -------------------- LEVEL OBJECTS --------------------
-let spikes = [];
-let platforms = [];
-let decorations = [];
+let spikes = [];      // { x, y, size, small }
+let platforms = [];   // { x, y, w, h }
 let particles = [];
 let trail = [];
+let levelEndX = 4000; // will be set by generator
 
 // Random helper
 function rand(min, max) {
@@ -58,65 +61,91 @@ function rand(min, max) {
 function generateLevel() {
   spikes = [];
   platforms = [];
-  decorations = [];
   particles = [];
   trail = [];
 
   let x = 600;
 
   for (let i = 0; i < 80; i++) {
-    const type = rand(1, 7);
+    const type = rand(1, 8);
 
-    // Spike patterns
+    // Full-size spike patterns
     if (type <= 3) {
-      spikes.push({ x, y: groundY - 40, size: 40 });
+      spikes.push({ x, y: groundY - 40, size: 40, small: false });
       if (Math.random() < 0.4) {
-        spikes.push({ x: x + 50, y: groundY - 40, size: 40 });
+        spikes.push({ x: x + 50, y: groundY - 40, size: 40, small: false });
       }
       x += rand(220, 360);
     }
 
-    // Platform jumps
+    // Brick platforms
     if (type === 4) {
       const py = groundY - rand(120, 200);
       const w = rand(140, 220);
-      platforms.push({ x, y: py, w, h: 24 }); // a bit thicker
+      platforms.push({ x, y: py, w, h: 24 });
 
+      // Spike on platform
       if (Math.random() < 0.5) {
-        spikes.push({ x: x + w / 2 - 20, y: py - 40, size: 40 });
-      }
-
-      x += rand(260, 360);
-    }
-
-    // Decoration chains
-    if (type === 5) {
-      decorations.push({
-        x,
-        y: rand(40, 120),
-        length: rand(40, 120)
-      });
-      x += rand(200, 300);
-    }
-
-    // Small spike clusters
-    if (type === 6) {
-      const count = rand(2, 5);
-      for (let j = 0; j < count; j++) {
         spikes.push({
-          x: x + j * 40,
-          y: groundY - 40,
-          size: 40
+          x: x + w / 2 - 20,
+          y: py - 40,
+          size: 40,
+          small: false
         });
       }
+
       x += rand(260, 360);
+    }
+
+    // Small spike clusters (max 3)
+    if (type === 5) {
+      const count = rand(1, 4); // 1–3
+      for (let j = 0; j < count; j++) {
+        const size = 24;
+        spikes.push({
+          x: x + j * (size + 6),
+          y: groundY - size,
+          size,
+          small: true
+        });
+      }
+      x += rand(220, 320);
+    }
+
+    // Mixed cluster of big + small
+    if (type === 6) {
+      spikes.push({ x, y: groundY - 40, size: 40, small: false });
+      const size = 24;
+      spikes.push({
+        x: x + 50,
+        y: groundY - size,
+        size,
+        small: true
+      });
+      x += rand(240, 340);
     }
 
     // Chill gap
     if (type === 7) {
       x += rand(260, 380);
     }
+
+    // Slightly harder section
+    if (type === 8) {
+      const count = rand(2, 4);
+      for (let j = 0; j < count; j++) {
+        spikes.push({
+          x: x + j * 40,
+          y: groundY - 40,
+          size: 40,
+          small: false
+        });
+      }
+      x += rand(260, 360);
+    }
   }
+
+  levelEndX = x + 600; // for progress bar
 }
 
 generateLevel();
@@ -152,8 +181,8 @@ function update() {
 
   player.prevY = player.y;
 
-  // Make movement feel more "moving forward"
-  cameraX += 10; // slightly faster
+  // Slightly slower movement
+  cameraX += 8;
   score = Math.floor(cameraX / 10);
 
   // Physics
@@ -172,11 +201,11 @@ function update() {
     player.onGround = false;
   }
 
-  // Rotation: slower, smoother
+  // Rotation: even less spin
   if (!player.onGround) {
-    player.rotation += 0.12; // was 0.2
+    player.rotation += 0.08; // was 0.12
   } else {
-    player.rotation *= 0.6; // damp harder on ground
+    player.rotation *= 0.5; // damp more
   }
 
   // Trail
@@ -187,14 +216,26 @@ function update() {
   });
   if (trail.length > 40) trail.shift();
 
-  // Spike collision
+  // Spike collision with nicer hitboxes
   for (const s of spikes) {
     const px = player.x + cameraX;
-    if (
-      px < s.x + s.size &&
-      px + player.size > s.x &&
-      player.y + player.size > s.y
-    ) {
+
+    // Shrink hitbox horizontally and vertically
+    const hitW = s.size * 0.7;
+    const hitH = s.size * 0.7;
+    const hitX = s.x + (s.size - hitW) / 2;
+    const hitY = s.y + s.size * 0.3; // ignore very bottom
+
+    const playerRight = px + player.size;
+    const playerBottom = player.y + player.size;
+
+    const overlap =
+      px < hitX + hitW &&
+      playerRight > hitX &&
+      playerBottom > hitY &&
+      player.y < hitY + hitH;
+
+    if (overlap) {
       spawnParticles(
         player.x + player.size / 2,
         player.y + player.size / 2,
@@ -202,6 +243,7 @@ function update() {
         COLORS.spike
       );
       gameOver = true;
+      break;
     }
   }
 
@@ -267,26 +309,10 @@ function drawSpike(x, y, size) {
   ctx.closePath();
   ctx.fillStyle = COLORS.spike;
   ctx.fill();
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.strokeStyle = COLORS.spikeOutline;
   ctx.stroke();
   ctx.restore();
-}
-
-function drawChain(x, y, length) {
-  ctx.strokeStyle = "rgba(148,163,184,0.7)";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x, y + length);
-  ctx.stroke();
-
-  for (let i = 0; i < length; i += 16) {
-    ctx.beginPath();
-    ctx.arc(x, y + i, 3, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(148,163,184,0.9)";
-    ctx.fill();
-  }
 }
 
 function drawGroundTiles() {
@@ -303,7 +329,10 @@ function drawGroundTiles() {
 // Brick-style platform
 function drawBrickPlatform(x, y, w, h) {
   // main body
-  ctx.fillStyle = COLORS.platform;
+  const topGrad = ctx.createLinearGradient(0, y, 0, y + h);
+  topGrad.addColorStop(0, "#4fd1ff");
+  topGrad.addColorStop(1, COLORS.platform);
+  ctx.fillStyle = topGrad;
   ctx.fillRect(x, y, w, h);
 
   // brick pattern
@@ -319,6 +348,10 @@ function drawBrickPlatform(x, y, w, h) {
       ctx.strokeRect(bx, yRow, brickW, brickH);
     }
   }
+
+  // top highlight
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.fillRect(x, y, w, 4);
 
   // outline
   ctx.strokeStyle = COLORS.platformOutline;
@@ -337,6 +370,32 @@ function drawPlatformSupports(x, y, w) {
   }
 }
 
+// Chains holding platforms from above
+function drawPlatformChains(x, y, w) {
+  const chainCount = Math.max(1, Math.floor(w / 80));
+  const spacing = w / (chainCount + 1);
+
+  for (let i = 1; i <= chainCount; i++) {
+    const cx = x + spacing * i;
+    const topY = 40; // from near top of screen
+    const length = y - topY;
+
+    ctx.strokeStyle = "rgba(148,163,184,0.8)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx, topY);
+    ctx.lineTo(cx, y);
+    ctx.stroke();
+
+    for (let j = 0; j < length; j += 18) {
+      ctx.beginPath();
+      ctx.arc(cx, topY + j, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(148,163,184,0.95)";
+      ctx.fill();
+    }
+  }
+}
+
 // -------------------- DRAW --------------------
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
@@ -349,40 +408,32 @@ function draw() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  // Moving background shapes (stronger parallax)
+  // Stronger moving background shapes
   ctx.fillStyle = "rgba(15,23,42,0.7)";
   for (let i = 0; i < 8; i++) {
-    const offset = (cameraX * 0.35 + i * 260) % (WIDTH + 260) - 260;
+    const offset = (cameraX * 0.4 + i * 260) % (WIDTH + 260) - 260;
     ctx.fillRect(offset, 60 + i * 35, 200, 4);
   }
 
   ctx.fillStyle = "rgba(30,64,175,0.35)";
-  for (let i = 0; i < 5; i++) {
-    const offset = (cameraX * 0.18 + i * 340) % (WIDTH + 340) - 340;
+  for (let i = 0; i < 6; i++) {
+    const offset = (cameraX * 0.22 + i * 340) % (WIDTH + 340) - 340;
     ctx.beginPath();
     ctx.arc(offset + 120, 120 + i * 60, 40, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Decorations
-  for (const d of decorations) {
-    const screenX = d.x - cameraX * 0.7;
-    if (screenX > -80 && screenX < WIDTH + 80) {
-      drawChain(screenX, d.y, d.length);
-    }
-  }
-
   // Ground
   ctx.fillStyle = COLORS.ground;
   ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
-
   drawGroundTiles();
 
-  // Platforms (supports + brick top)
+  // Platforms (chains + supports + brick top)
   for (const p of platforms) {
     const screenX = p.x - cameraX;
     if (screenX + p.w < 0 || screenX > WIDTH) continue;
 
+    drawPlatformChains(screenX, p.y, p.w);
     drawPlatformSupports(screenX, p.y, p.w);
     drawBrickPlatform(screenX, p.y, p.w, p.h);
   }
@@ -435,11 +486,31 @@ function draw() {
     ctx.fill();
   }
 
-  // UI
+  // Progress bar (top center)
+  const barWidth = 400;
+  const barHeight = 10;
+  const barX = (WIDTH - barWidth) / 2;
+  const barY = 20;
+  const progress = Math.max(
+    0,
+    Math.min(1, cameraX / levelEndX)
+  );
+
+  ctx.fillStyle = COLORS.progressBg;
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+
+  ctx.fillStyle = COLORS.progressFill;
+  ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+
+  ctx.strokeStyle = COLORS.progressBorder;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+  // Score
   ctx.fillStyle = COLORS.text;
-  ctx.font = "24px system-ui";
+  ctx.font = "20px system-ui";
   ctx.textAlign = "left";
-  ctx.fillText("Score: " + score, 20, 40);
+  ctx.fillText("Score: " + score, 20, 50);
 
   if (gameOver) {
     ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
