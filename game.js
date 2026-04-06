@@ -16,6 +16,7 @@ const COLORS = {
   spike: "#f97373",
   spikeOutline: "#ef4444",
   platform: "#38bdf8",
+  platformDark: "#0f7490",
   platformOutline: "#0ea5e9",
   text: "#facc15",
   trail: "rgba(34,197,94,0.3)",
@@ -25,12 +26,12 @@ const COLORS = {
 // -------------------- PLAYER --------------------
 const player = {
   x: 160,
-  y: HEIGHT - 140,
-  size: 32,
+  y: HEIGHT - 160,
+  size: 40,          // bigger cube
   vy: 0,
   rotation: 0,
   onGround: false,
-  prevY: HEIGHT - 140
+  prevY: HEIGHT - 160
 };
 
 const GRAVITY = 0.9;
@@ -79,7 +80,7 @@ function generateLevel() {
     if (type === 4) {
       const py = groundY - rand(120, 200);
       const w = rand(140, 220);
-      platforms.push({ x, y: py, w, h: 20 });
+      platforms.push({ x, y: py, w, h: 24 }); // a bit thicker
 
       if (Math.random() < 0.5) {
         spikes.push({ x: x + w / 2 - 20, y: py - 40, size: 40 });
@@ -122,7 +123,7 @@ generateLevel();
 
 // -------------------- RESET --------------------
 function reset() {
-  player.y = HEIGHT - 140;
+  player.y = HEIGHT - 160;
   player.vy = 0;
   player.rotation = 0;
   cameraX = 0;
@@ -151,7 +152,8 @@ function update() {
 
   player.prevY = player.y;
 
-  cameraX += 8;
+  // Make movement feel more "moving forward"
+  cameraX += 10; // slightly faster
   score = Math.floor(cameraX / 10);
 
   // Physics
@@ -170,9 +172,12 @@ function update() {
     player.onGround = false;
   }
 
-  // Rotation
-  if (!player.onGround) player.rotation += 0.2;
-  else player.rotation *= 0.7;
+  // Rotation: slower, smoother
+  if (!player.onGround) {
+    player.rotation += 0.12; // was 0.2
+  } else {
+    player.rotation *= 0.6; // damp harder on ground
+  }
 
   // Trail
   trail.push({
@@ -295,6 +300,43 @@ function drawGroundTiles() {
   }
 }
 
+// Brick-style platform
+function drawBrickPlatform(x, y, w, h) {
+  // main body
+  ctx.fillStyle = COLORS.platform;
+  ctx.fillRect(x, y, w, h);
+
+  // brick pattern
+  const brickH = h / 2;
+  const brickW = 24;
+  ctx.strokeStyle = COLORS.platformDark;
+  ctx.lineWidth = 2;
+
+  for (let row = 0; row < 2; row++) {
+    const yRow = y + row * brickH;
+    const offset = row % 2 === 0 ? 0 : brickW / 2;
+    for (let bx = x - offset; bx < x + w; bx += brickW) {
+      ctx.strokeRect(bx, yRow, brickW, brickH);
+    }
+  }
+
+  // outline
+  ctx.strokeStyle = COLORS.platformOutline;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x, y, w, h);
+}
+
+// Platform supports down to floor
+function drawPlatformSupports(x, y, w) {
+  const supportWidth = 10;
+  const gap = 40;
+  ctx.fillStyle = COLORS.platformDark;
+
+  for (let sx = x + supportWidth; sx < x + w - supportWidth; sx += gap) {
+    ctx.fillRect(sx, y + 24, supportWidth, groundY - (y + 24));
+  }
+}
+
 // -------------------- DRAW --------------------
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
@@ -307,11 +349,19 @@ function draw() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  // Parallax stripes
+  // Moving background shapes (stronger parallax)
   ctx.fillStyle = "rgba(15,23,42,0.7)";
-  for (let i = 0; i < 6; i++) {
-    const offset = (cameraX * 0.2 + i * 220) % (WIDTH + 220) - 220;
-    ctx.fillRect(offset, 80 + i * 40, 180, 4);
+  for (let i = 0; i < 8; i++) {
+    const offset = (cameraX * 0.35 + i * 260) % (WIDTH + 260) - 260;
+    ctx.fillRect(offset, 60 + i * 35, 200, 4);
+  }
+
+  ctx.fillStyle = "rgba(30,64,175,0.35)";
+  for (let i = 0; i < 5; i++) {
+    const offset = (cameraX * 0.18 + i * 340) % (WIDTH + 340) - 340;
+    ctx.beginPath();
+    ctx.arc(offset + 120, 120 + i * 60, 40, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // Decorations
@@ -328,17 +378,13 @@ function draw() {
 
   drawGroundTiles();
 
-  // Platforms
+  // Platforms (supports + brick top)
   for (const p of platforms) {
     const screenX = p.x - cameraX;
     if (screenX + p.w < 0 || screenX > WIDTH) continue;
 
-    ctx.fillStyle = COLORS.platform;
-    ctx.fillRect(screenX, p.y, p.w, p.h);
-
-    ctx.strokeStyle = COLORS.platformOutline;
-    ctx.lineWidth = 3;
-    ctx.strokeRect(screenX, p.y, p.w, p.h);
+    drawPlatformSupports(screenX, p.y, p.w);
+    drawBrickPlatform(screenX, p.y, p.w, p.h);
   }
 
   // Spikes
@@ -360,12 +406,12 @@ function draw() {
   // Player glow
   ctx.save();
   ctx.translate(player.x + player.size / 2, player.y + player.size / 2);
-  const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 40);
+  const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 50);
   glowGrad.addColorStop(0, COLORS.playerGlow);
   glowGrad.addColorStop(1, "rgba(34,197,94,0)");
   ctx.fillStyle = glowGrad;
   ctx.beginPath();
-  ctx.arc(0, 0, 40, 0, Math.PI * 2);
+  ctx.arc(0, 0, 50, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
