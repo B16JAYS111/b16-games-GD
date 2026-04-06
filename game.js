@@ -30,7 +30,7 @@ const COLORS = {
 const player = {
   x: 160,
   y: HEIGHT - 160,
-  size: 40,          // bigger cube
+  size: 40,
   vy: 0,
   rotation: 0,
   onGround: false,
@@ -50,7 +50,7 @@ let spikes = [];      // { x, y, size, small }
 let platforms = [];   // { x, y, w, h }
 let particles = [];
 let trail = [];
-let levelEndX = 4000; // will be set by generator
+let levelEndX = 4000;
 
 // Random helper
 function rand(min, max) {
@@ -78,13 +78,12 @@ function generateLevel() {
       x += rand(220, 360);
     }
 
-    // Brick platforms
+    // Brick platforms (lower so reachable)
     if (type === 4) {
-      const py = groundY - rand(120, 200);
+      const py = groundY - rand(80, 140); // reachable range
       const w = rand(140, 220);
       platforms.push({ x, y: py, w, h: 24 });
 
-      // Spike on platform
       if (Math.random() < 0.5) {
         spikes.push({
           x: x + w / 2 - 20,
@@ -99,7 +98,7 @@ function generateLevel() {
 
     // Small spike clusters (max 3)
     if (type === 5) {
-      const count = rand(1, 4); // 1–3
+      const count = rand(1, 4);
       for (let j = 0; j < count; j++) {
         const size = 24;
         spikes.push({
@@ -145,7 +144,7 @@ function generateLevel() {
     }
   }
 
-  levelEndX = x + 600; // for progress bar
+  levelEndX = x + 600;
 }
 
 generateLevel();
@@ -201,11 +200,11 @@ function update() {
     player.onGround = false;
   }
 
-  // Rotation: even less spin
+  // Rotation: less spin
   if (!player.onGround) {
-    player.rotation += 0.08; // was 0.12
+    player.rotation += 0.08;
   } else {
-    player.rotation *= 0.5; // damp more
+    player.rotation *= 0.5;
   }
 
   // Trail
@@ -220,11 +219,10 @@ function update() {
   for (const s of spikes) {
     const px = player.x + cameraX;
 
-    // Shrink hitbox horizontally and vertically
     const hitW = s.size * 0.7;
     const hitH = s.size * 0.7;
     const hitX = s.x + (s.size - hitW) / 2;
-    const hitY = s.y + s.size * 0.3; // ignore very bottom
+    const hitY = s.y + s.size * 0.3;
 
     const playerRight = px + player.size;
     const playerBottom = player.y + player.size;
@@ -328,14 +326,12 @@ function drawGroundTiles() {
 
 // Brick-style platform
 function drawBrickPlatform(x, y, w, h) {
-  // main body
   const topGrad = ctx.createLinearGradient(0, y, 0, y + h);
   topGrad.addColorStop(0, "#4fd1ff");
   topGrad.addColorStop(1, COLORS.platform);
   ctx.fillStyle = topGrad;
   ctx.fillRect(x, y, w, h);
 
-  // brick pattern
   const brickH = h / 2;
   const brickW = 24;
   ctx.strokeStyle = COLORS.platformDark;
@@ -349,11 +345,9 @@ function drawBrickPlatform(x, y, w, h) {
     }
   }
 
-  // top highlight
   ctx.fillStyle = "rgba(255,255,255,0.15)";
   ctx.fillRect(x, y, w, 4);
 
-  // outline
   ctx.strokeStyle = COLORS.platformOutline;
   ctx.lineWidth = 3;
   ctx.strokeRect(x, y, w, h);
@@ -377,7 +371,7 @@ function drawPlatformChains(x, y, w) {
 
   for (let i = 1; i <= chainCount; i++) {
     const cx = x + spacing * i;
-    const topY = 40; // from near top of screen
+    const topY = 40;
     const length = y - topY;
 
     ctx.strokeStyle = "rgba(148,163,184,0.8)";
@@ -408,7 +402,7 @@ function draw() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  // Stronger moving background shapes
+  // Moving background shapes
   ctx.fillStyle = "rgba(15,23,42,0.7)";
   for (let i = 0; i < 8; i++) {
     const offset = (cameraX * 0.4 + i * 260) % (WIDTH + 260) - 260;
@@ -428,7 +422,7 @@ function draw() {
   ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
   drawGroundTiles();
 
-  // Platforms (chains + supports + brick top)
+  // Platforms
   for (const p of platforms) {
     const screenX = p.x - cameraX;
     if (screenX + p.w < 0 || screenX > WIDTH) continue;
@@ -486,15 +480,12 @@ function draw() {
     ctx.fill();
   }
 
-  // Progress bar (top center)
+  // Progress bar
   const barWidth = 400;
   const barHeight = 10;
   const barX = (WIDTH - barWidth) / 2;
   const barY = 20;
-  const progress = Math.max(
-    0,
-    Math.min(1, cameraX / levelEndX)
-  );
+  const progress = Math.max(0, Math.min(1, cameraX / levelEndX));
 
   ctx.fillStyle = COLORS.progressBg;
   ctx.fillRect(barX, barY, barWidth, barHeight);
@@ -570,3 +561,15 @@ canvas.addEventListener("pointerdown", () => {
     reset();
   }
 });
+
+// -------------------- FULLSCREEN BUTTON --------------------
+const fsBtn = document.getElementById("fullscreen-btn");
+if (fsBtn) {
+  fsBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  });
+}
