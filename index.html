@@ -2,30 +2,48 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>B16 Games</title>
+  <title>B16 Games GD</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+    }
+
+    #game-wrapper {
+      text-align: center;
+    }
+
+    #ui {
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 8px 16px;
+      margin: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
 </head>
+
 <body>
   <div id="game-wrapper">
-    <div id="title-bar">B16 Games</div>
-
     <canvas id="game" width="900" height="500"></canvas>
 
     <div id="ui">
       <button id="btn-restart">Restart</button>
       <button id="fullscreen-btn">Fullscreen</button>
-      <span id="label-level">Level 1</span>
     </div>
   </div>
 
-  <script src="game.js?v=10"></script>
-  <script>
-    // Hook restart button to reset() from game.js
-    const restartBtn = document.getElementById("btn-restart");
-    restartBtn.addEventListener("click", () => {
-      if (typeof reset === "function") reset();
-    });
-  </script>
+  <script src="game.js"></script>
 </body>
 </html>
