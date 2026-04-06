@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  background: #05060a;
+  background: #020617;
   font-family: system-ui, sans-serif;
   display: flex;
   justify-content: center;
@@ -10,45 +10,21 @@ body {
 }
 
 #game-wrapper {
-  background: #111827;
+  background: #0f172a;
   border-radius: 12px;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
   padding: 10px 10px 16px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
 }
 
 #title-bar {
   text-align: center;
   font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: #facc15;
   margin-bottom: 6px;
 }
 
 #game {
   display: block;
-  background: linear-gradient(#020617, #0f172a);
   border-radius: 8px;
-}
-
-#ui {
-  margin-top: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 14px;
-}
-
-#btn-restart {
-  background: #22c55e;
-  border: none;
-  color: #020617;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-#btn-restart:hover {
-  background: #16a34a;
 }
