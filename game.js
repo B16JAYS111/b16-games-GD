@@ -10,47 +10,86 @@ const player = {
   y: HEIGHT - 120,
   size: 32,
   vy: 0,
-  onGround: false
+  onGround: false,
+  rotation: 0
 };
 
 const GRAVITY = 0.9;
 const JUMP_FORCE = -18;
 const SPEED = 8;
 
-// Ground
 const groundY = HEIGHT - 80;
-
-// Score
-let score = 0;
-
-// Level objects
-const spikes = [];
-const platforms = [];
-
-// Generate spikes with better spacing
-for (let i = 0; i < 30; i++) {
-  const gap = 260;
-  const baseX = 600 + i * gap;
-
-  spikes.push({
-    x: baseX,
-    y: groundY - 40,
-    size: 40
-  });
-
-  // Add platforms every few spikes
-  if (i % 3 === 0) {
-    platforms.push({
-      x: baseX + 120,
-      y: groundY - 160,
-      w: 160,
-      h: 20
-    });
-  }
-}
 
 let cameraX = 0;
 let gameOver = false;
+let score = 0;
+
+// Level arrays
+let spikes = [];
+let platforms = [];
+let decorations = [];
+
+// Random helper
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+// Generate procedural level
+function generateLevel() {
+  spikes = [];
+  platforms = [];
+  decorations = [];
+
+  let x = 600;
+
+  for (let i = 0; i < 60; i++) {
+    const type = rand(1, 6);
+
+    if (type === 1) {
+      // Single spike
+      spikes.push({ x, y: groundY - 40, size: 40 });
+      x += rand(200, 350);
+    }
+
+    if (type === 2) {
+      // Double spike
+      spikes.push({ x, y: groundY - 40, size: 40 });
+      spikes.push({ x: x + 50, y: groundY - 40, size: 40 });
+      x += rand(250, 400);
+    }
+
+    if (type === 3) {
+      // Platform jump
+      platforms.push({
+        x,
+        y: groundY - rand(120, 200),
+        w: rand(120, 200),
+        h: 20
+      });
+      x += rand(250, 350);
+    }
+
+    if (type === 4) {
+      // Spike on platform
+      const py = groundY - rand(140, 200);
+      platforms.push({ x, y: py, w: 160, h: 20 });
+      spikes.push({ x: x + 60, y: py - 40, size: 40 });
+      x += rand(250, 350);
+    }
+
+    if (type === 5) {
+      // Decoration chain
+      decorations.push({
+        x,
+        y: rand(40, 120),
+        length: rand(40, 120)
+      });
+      x += rand(200, 300);
+    }
+  }
+}
+
+generateLevel();
 
 function reset() {
   player.y = HEIGHT - 120;
@@ -58,16 +97,15 @@ function reset() {
   cameraX = 0;
   score = 0;
   gameOver = false;
+  generateLevel();
 }
 
 function update() {
   if (gameOver) return;
 
-  // Physics
   player.vy += GRAVITY;
   player.y += player.vy;
 
-  // Ground collision
   if (player.y + player.size >= groundY) {
     player.y = groundY - player.size;
     player.vy = 0;
@@ -76,10 +114,7 @@ function update() {
     player.onGround = false;
   }
 
-  // Camera scroll
   cameraX += SPEED;
-
-  // Score increases with distance
   score = Math.floor(cameraX / 10);
 
   // Spike collision
@@ -111,20 +146,29 @@ function update() {
     }
   }
 
-  // Fall off screen
-  if (player.y > HEIGHT) {
-    gameOver = true;
-  }
+  if (player.y > HEIGHT) gameOver = true;
+
+  // Rotate cube
+  if (!player.onGround) player.rotation += 0.2;
 }
 
 function drawSpike(x, y, size) {
-  ctx.fillStyle = "#f43f5e";
+  ctx.fillStyle = "#ef4444";
   ctx.beginPath();
   ctx.moveTo(x, y + size);
   ctx.lineTo(x + size / 2, y);
   ctx.lineTo(x + size, y + size);
   ctx.closePath();
   ctx.fill();
+}
+
+function drawChain(x, y, length) {
+  ctx.strokeStyle = "#64748b";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x, y + length);
+  ctx.stroke();
 }
 
 function draw() {
@@ -137,67 +181,17 @@ function draw() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
+  // Decorations
+  for (const d of decorations) {
+    const screenX = d.x - cameraX;
+    if (screenX > -50 && screenX < WIDTH + 50) {
+      drawChain(screenX, d.y, d.length);
+    }
+  }
+
   // Ground
   ctx.fillStyle = "#0f172a";
   ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
 
   // Platforms
-  ctx.fillStyle = "#38bdf8";
-  for (const p of platforms) {
-    const screenX = p.x - cameraX;
-    if (screenX + p.w < 0 || screenX > WIDTH) continue;
-    ctx.fillRect(screenX, p.y, p.w, p.h);
-  }
-
-  // Spikes
-  for (const s of spikes) {
-    const screenX = s.x - cameraX;
-    if (screenX + s.size < 0 || screenX > WIDTH) continue;
-    drawSpike(screenX, s.y, s.size);
-  }
-
-  // Player
-  ctx.fillStyle = "#22c55e";
-  ctx.fillRect(player.x, player.y, player.size, player.size);
-
-  // Score
-  ctx.fillStyle = "#facc15";
-  ctx.font = "24px system-ui";
-  ctx.fillText("Score: " + score, 20, 40);
-
-  // Game over screen
-  if (gameOver) {
-    ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    ctx.fillStyle = "#facc15";
-    ctx.font = "32px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillText("Level Failed", WIDTH / 2, HEIGHT / 2);
-    ctx.font = "18px system-ui";
-    ctx.fillText("Press R or tap to restart", WIDTH / 2, HEIGHT / 2 + 40);
-  }
-}
-
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-
-loop();
-
-// Controls
-window.addEventListener("keydown", (e) => {
-  if ((e.code === "Space" || e.code === "ArrowUp") && player.onGround && !gameOver) {
-    player.vy = JUMP_FORCE;
-  }
-  if (e.code === "KeyR") reset();
-});
-
-canvas.addEventListener("pointerdown", () => {
-  if (player.onGround && !gameOver) {
-    player.vy = JUMP_FORCE;
-  } else if (gameOver) {
-    reset();
-  }
-});
+  ctx.fillStyle
