@@ -17,20 +17,34 @@ const GRAVITY = 0.9;
 const JUMP_FORCE = -18;
 const SPEED = 8;
 
-// Simple ground + spikes level
+// Ground
 const groundY = HEIGHT - 80;
-const obstacles = [];
 
-// Create a simple pattern of spikes
-for (let i = 0; i < 40; i++) {
-  const gap = 140;
-  const baseX = 400 + i * gap;
-  if (i % 2 === 0) {
-    obstacles.push({
-      x: baseX,
-      y: groundY - 40,
-      w: 40,
-      h: 40
+// Score
+let score = 0;
+
+// Level objects
+const spikes = [];
+const platforms = [];
+
+// Generate spikes with better spacing
+for (let i = 0; i < 30; i++) {
+  const gap = 260;
+  const baseX = 600 + i * gap;
+
+  spikes.push({
+    x: baseX,
+    y: groundY - 40,
+    size: 40
+  });
+
+  // Add platforms every few spikes
+  if (i % 3 === 0) {
+    platforms.push({
+      x: baseX + 120,
+      y: groundY - 160,
+      w: 160,
+      h: 20
     });
   }
 }
@@ -42,6 +56,7 @@ function reset() {
   player.y = HEIGHT - 120;
   player.vy = 0;
   cameraX = 0;
+  score = 0;
   gameOver = false;
 }
 
@@ -52,6 +67,7 @@ function update() {
   player.vy += GRAVITY;
   player.y += player.vy;
 
+  // Ground collision
   if (player.y + player.size >= groundY) {
     player.y = groundY - player.size;
     player.vy = 0;
@@ -63,83 +79,102 @@ function update() {
   // Camera scroll
   cameraX += SPEED;
 
-  // Collision with obstacles
-  for (const o of obstacles) {
+  // Score increases with distance
+  score = Math.floor(cameraX / 10);
+
+  // Spike collision
+  for (const s of spikes) {
     const px = player.x + cameraX;
     if (
-      px < o.x + o.w &&
-      px + player.size > o.x &&
-      player.y < o.y + o.h &&
-      player.y + player.size > o.y
+      px < s.x + s.size &&
+      px + player.size > s.x &&
+      player.y + player.size > s.y
     ) {
       gameOver = true;
     }
   }
 
-  // Fail if off screen
+  // Platform collision
+  for (const p of platforms) {
+    const px = player.x + cameraX;
+
+    if (
+      px < p.x + p.w &&
+      px + player.size > p.x &&
+      player.y + player.size > p.y &&
+      player.y + player.size < p.y + 20 &&
+      player.vy > 0
+    ) {
+      player.y = p.y - player.size;
+      player.vy = 0;
+      player.onGround = true;
+    }
+  }
+
+  // Fall off screen
   if (player.y > HEIGHT) {
     gameOver = true;
   }
 }
 
-function drawGrid() {
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
-  ctx.lineWidth = 1;
-  const gridSize = 40;
-  for (let x = -((cameraX % gridSize)); x < WIDTH; x += gridSize) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, HEIGHT);
-    ctx.stroke();
-  }
-  for (let y = 0; y < HEIGHT; y += gridSize) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(WIDTH, y);
-    ctx.stroke();
-  }
+function drawSpike(x, y, size) {
+  ctx.fillStyle = "#f43f5e";
+  ctx.beginPath();
+  ctx.moveTo(x, y + size);
+  ctx.lineTo(x + size / 2, y);
+  ctx.lineTo(x + size, y + size);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-  // Background glow
+  // Background
   const grad = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT);
-  grad.addColorStop(0, "#0f172a");
-  grad.addColorStop(1, "#020617");
+  grad.addColorStop(0, "#1e293b");
+  grad.addColorStop(1, "#0f172a");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  drawGrid();
-
   // Ground
-  ctx.fillStyle = "#020617";
+  ctx.fillStyle = "#0f172a";
   ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
 
-  // Obstacles (spikes as squares for now)
-  ctx.fillStyle = "#f97316";
-  for (const o of obstacles) {
-    const screenX = o.x - cameraX;
-    if (screenX + o.w < 0 || screenX > WIDTH) continue;
-    ctx.fillRect(screenX, o.y, o.w, o.h);
+  // Platforms
+  ctx.fillStyle = "#38bdf8";
+  for (const p of platforms) {
+    const screenX = p.x - cameraX;
+    if (screenX + p.w < 0 || screenX > WIDTH) continue;
+    ctx.fillRect(screenX, p.y, p.w, p.h);
+  }
+
+  // Spikes
+  for (const s of spikes) {
+    const screenX = s.x - cameraX;
+    if (screenX + s.size < 0 || screenX > WIDTH) continue;
+    drawSpike(screenX, s.y, s.size);
   }
 
   // Player
-  ctx.save();
-  ctx.translate(player.x, player.y);
   ctx.fillStyle = "#22c55e";
-  ctx.fillRect(0, 0, player.size, player.size);
-  ctx.restore();
+  ctx.fillRect(player.x, player.y, player.size, player.size);
 
+  // Score
+  ctx.fillStyle = "#facc15";
+  ctx.font = "24px system-ui";
+  ctx.fillText("Score: " + score, 20, 40);
+
+  // Game over screen
   if (gameOver) {
     ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
     ctx.fillStyle = "#facc15";
     ctx.font = "32px system-ui";
     ctx.textAlign = "center";
-    ctx.fillText("B16 Games - Level Failed", WIDTH / 2, HEIGHT / 2);
+    ctx.fillText("Level Failed", WIDTH / 2, HEIGHT / 2);
     ctx.font = "18px system-ui";
-    ctx.fillText("Press R or tap Restart", WIDTH / 2, HEIGHT / 2 + 40);
+    ctx.fillText("Press R or tap to restart", WIDTH / 2, HEIGHT / 2 + 40);
   }
 }
 
@@ -153,19 +188,12 @@ loop();
 
 // Controls
 window.addEventListener("keydown", (e) => {
-  if (e.code === "Space" || e.code === "ArrowUp") {
-    if (player.onGround && !gameOver) {
-      player.vy = JUMP_FORCE;
-    }
+  if ((e.code === "Space" || e.code === "ArrowUp") && player.onGround && !gameOver) {
+    player.vy = JUMP_FORCE;
   }
-  if (e.code === "KeyR") {
-    reset();
-  }
+  if (e.code === "KeyR") reset();
 });
 
-document.getElementById("btn-restart").addEventListener("click", reset);
-
-// Simple mobile tap jump
 canvas.addEventListener("pointerdown", () => {
   if (player.onGround && !gameOver) {
     player.vy = JUMP_FORCE;
