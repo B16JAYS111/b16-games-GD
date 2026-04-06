@@ -9,13 +9,23 @@
 <body>
   <div id="game-wrapper">
     <div id="title-bar">B16 Games</div>
+
     <canvas id="game" width="900" height="500"></canvas>
+
     <div id="ui">
       <button id="btn-restart">Restart</button>
+      <button id="fullscreen-btn">Fullscreen</button>
       <span id="label-level">Level 1</span>
     </div>
   </div>
 
-    <script src="game.js?v=7"></script>
+  <script src="game.js?v=8"></script>
+  <script>
+    // Hook restart button to reset() from game.js
+    const restartBtn = document.getElementById("btn-restart");
+    restartBtn.addEventListener("click", () => {
+      if (typeof reset === "function") reset();
+    });
+  </script>
 </body>
 </html>
