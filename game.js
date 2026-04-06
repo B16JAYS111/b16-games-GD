@@ -4,7 +4,7 @@ const ctx = canvas.getContext("2d");
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
-// -------------------- COLORS --------------------
+// COLORS
 const COLORS = {
   bgTop: "#020617",
   bgMid: "#0b1120",
@@ -16,16 +16,14 @@ const COLORS = {
   spike: "#f97373",
   spikeOutline: "#ef4444",
   platform: "#38bdf8",
-  platformDark: "#0f7490",
   platformOutline: "#0ea5e9",
   text: "#facc15",
-  particle: "#e5e7eb",
   progressBg: "rgba(15,23,42,0.9)",
   progressFill: "#22c55e",
   progressBorder: "#e5e7eb"
 };
 
-// -------------------- PLAYER --------------------
+// PLAYER
 const player = {
   x: 200,
   y: HEIGHT - 160,
@@ -44,19 +42,18 @@ let cameraX = 0;
 let gameOver = false;
 let score = 0;
 
-// -------------------- LEVEL OBJECTS --------------------
 let spikes = [];
 let platforms = [];
 let particles = [];
 let trail = [];
 let levelEndX = 4000;
 
-// Random helper
+// RANDOM
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min)) + min;
 }
 
-// -------------------- LEVEL GENERATION --------------------
+// LEVEL GENERATION
 function generateLevel() {
   spikes = [];
   platforms = [];
@@ -68,13 +65,11 @@ function generateLevel() {
   for (let i = 0; i < 60; i++) {
     const type = rand(1, 6);
 
-    // Big spikes
     if (type <= 2) {
       spikes.push({ x, y: groundY - 40, size: 40 });
       x += rand(200, 300);
     }
 
-    // Small spike clusters
     if (type === 3) {
       const count = rand(1, 4);
       for (let j = 0; j < count; j++) {
@@ -87,7 +82,6 @@ function generateLevel() {
       x += rand(200, 300);
     }
 
-    // Platforms (reachable)
     if (type === 4) {
       const py = groundY - rand(80, 140);
       const w = rand(140, 220);
@@ -95,7 +89,6 @@ function generateLevel() {
       x += rand(240, 320);
     }
 
-    // Gap
     if (type === 5) {
       x += rand(260, 360);
     }
@@ -106,7 +99,7 @@ function generateLevel() {
 
 generateLevel();
 
-// -------------------- RESET --------------------
+// RESET
 function reset() {
   player.y = HEIGHT - 160;
   player.vy = 0;
@@ -117,7 +110,7 @@ function reset() {
   generateLevel();
 }
 
-// -------------------- PARTICLES --------------------
+// PARTICLES
 function spawnParticles(x, y, count, color) {
   for (let i = 0; i < count; i++) {
     particles.push({
@@ -131,7 +124,7 @@ function spawnParticles(x, y, count, color) {
   }
 }
 
-// -------------------- UPDATE --------------------
+// UPDATE
 function update() {
   if (gameOver) return;
 
@@ -140,11 +133,9 @@ function update() {
   cameraX += 8;
   score = Math.floor(cameraX / 10);
 
-  // Gravity
   player.vy += GRAVITY;
   player.y += player.vy;
 
-  // Ground collision
   if (player.y + player.size >= groundY) {
     player.y = groundY - player.size;
     player.vy = 0;
@@ -153,7 +144,6 @@ function update() {
     player.onGround = false;
   }
 
-  // Rotation
   if (!player.onGround) player.rotation += 0.08;
   else player.rotation *= 0.5;
 
@@ -193,11 +183,10 @@ function update() {
   });
   if (trail.length > 40) trail.shift();
 
-  // Update particles
   particles = particles.filter(p => p.life-- > 0);
 }
 
-// -------------------- DRAW HELPERS --------------------
+// DRAW SPIKE
 function drawSpike(x, y, size) {
   ctx.save();
   ctx.translate(x + size / 2, y + size / 2);
@@ -214,15 +203,7 @@ function drawSpike(x, y, size) {
   ctx.restore();
 }
 
-function drawGroundTiles() {
-  const tile = 40;
-  for (let x = -((cameraX % tile) + tile); x < WIDTH + tile; x += tile) {
-    ctx.fillStyle = COLORS.groundTile;
-    ctx.fillRect(x, groundY, tile - 2, tile);
-  }
-}
-
-// Brick platform
+// DRAW PLATFORM
 function drawPlatform(x, y, w, h) {
   ctx.fillStyle = COLORS.platform;
   ctx.fillRect(x, y, w, h);
@@ -232,7 +213,7 @@ function drawPlatform(x, y, w, h) {
   ctx.strokeRect(x, y, w, h);
 }
 
-// Chains
+// DRAW CHAINS
 function drawChains(x, y, w) {
   const count = Math.max(1, Math.floor(w / 80));
   const spacing = w / (count + 1);
@@ -248,7 +229,7 @@ function drawChains(x, y, w) {
   }
 }
 
-// -------------------- DRAW --------------------
+// DRAW
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
@@ -263,7 +244,6 @@ function draw() {
   // Ground
   ctx.fillStyle = COLORS.ground;
   ctx.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
-  drawGroundTiles();
 
   // Platforms
   for (const p of platforms) {
@@ -277,7 +257,7 @@ function draw() {
     drawSpike(s.x - cameraX, s.y, s.size);
   }
 
-  // Trail (moves left)
+  // Trail
   for (const t of trail) {
     ctx.fillStyle = `rgba(34,197,94,${t.life / 20})`;
     ctx.beginPath();
@@ -342,7 +322,7 @@ function draw() {
   }
 }
 
-// -------------------- LOOP --------------------
+// LOOP
 function loop() {
   update();
   draw();
@@ -351,7 +331,7 @@ function loop() {
 
 loop();
 
-// -------------------- INPUT --------------------
+// INPUT
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space" && player.onGround && !gameOver) {
     player.vy = JUMP_FORCE;
@@ -367,7 +347,7 @@ canvas.addEventListener("pointerdown", () => {
   }
 });
 
-// -------------------- FULLSCREEN --------------------
+// FULLSCREEN
 document.getElementById("fullscreen-btn").addEventListener("click", () => {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen();
